@@ -1,0 +1,31 @@
+name: Build project
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["*"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name != 'pull_request'}}
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/github-script@v5
+        id: version
+        with:
+          result-encoding: string
+          script: "return context.ref.startsWith('refs/tags') ? context.ref.substring(10) : 'latest'"
+      - name: Build image
+        run: docker build -t ghcr.io/porscheinformatik/weblate:${{steps.version.outputs.result}} .
+      - name: Push image to ghcr.io
+        if: ${{ github.event_name != 'pull_request'}}
+        run: docker push ghcr.io/porscheinformatik/weblate:${{steps.version.outputs.result}}
